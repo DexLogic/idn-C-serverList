@@ -1,0 +1,2 @@
+mkdir -p bin-linux
+g++ -Wall -Wno-unused src/main.c src/idnServerList.c -o bin-linux/serverList
