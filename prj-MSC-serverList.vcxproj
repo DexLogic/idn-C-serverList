@@ -80,10 +80,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="src/idn-hello.h" />
-    <ClInclude Include="src/idnServerList.h" />
     <ClInclude Include="src/plt-windows.h" />
+    <ClInclude Include="src/idnServerList.h" />
   </ItemGroup>
   <ItemGroup>
+      <ClCompile Include="src/plt-windows.c" />
     <ClCompile Include="src/idnServerList.c" />
     <ClCompile Include="src/main.c" />
   </ItemGroup>

@@ -504,6 +504,11 @@ static int serviceMapResponse(SCAN_CONTEXT *scanCtx, RESPONSE_INFO *responseInfo
                     logError("ServiceMapRsp(%s, service): Invalid serviceID %u", strRemoteAddr, serviceMapEntry->serviceID);
                     break;
                 }
+                else if(serviceMapEntry->serviceType == 0)
+                {
+                    logError("ServiceMapRsp(%s, service): Invalid serviceType %u", strRemoteAddr, serviceMapEntry->serviceType);
+                    break;
+                }
 
                 // Copy fields
                 IDNSL_SERVICE_INFO *serviceEntry = &serviceTable[serviceIndex];
@@ -594,6 +599,13 @@ static int recvInfoResponse(SCAN_CONTEXT *scanCtx)
     {
         logError("inet_ntop() failed (error: %d)", plt_sockGetLastError());
         return -1;
+    }
+
+    // Check sender port
+    if(ntohs(recvSockAddr.sin_port) != IDNVAL_HELLO_UDP_PORT)
+    {
+        logError("InfoRsp(%s): Invalid sender port %u", strRemoteAddr, ntohs(recvSockAddr.sin_port));
+        return 0;
     }
 
     // Get info record for address from which the datagram was received
@@ -824,6 +836,13 @@ static int recvScanResponse(SCAN_CONTEXT *scanCtx, INTERFACE_NODE *ifNode)
         return -1;
     }
 
+    // Check sender port
+    if(ntohs(recvSockAddr.sin_port) != IDNVAL_HELLO_UDP_PORT)
+    {
+        logError("ScanRsp(%s): Invalid sender port %u", strRemoteAddr, ntohs(recvSockAddr.sin_port));
+        return 0;
+    }
+
     // Get info record for address from which the datagram was received
     RESPONSE_INFO *responseInfo = getResponseInfo(scanCtx, &(recvSockAddr.sin_addr));
     if(responseInfo == (RESPONSE_INFO *)0) return -1;
@@ -978,14 +997,23 @@ static int runScan(SCAN_CONTEXT *scanCtx, unsigned msTimeout)
     FD_SET(scanCtx->infoRequestQueue.fdSocket, &rfdsPrm);
     if(scanCtx->infoRequestQueue.fdSocket > maxSocket) maxSocket = scanCtx->infoRequestQueue.fdSocket;
 
-    // Select timeout
-    struct timeval tv;
-    tv.tv_sec = msTimeout / 1000;
-    tv.tv_usec = (msTimeout % 1000) * 1000;
+    // Remember start time
+    uint32_t usStart = plt_getMonoTimeUS();
 
     // Send requests, receive replies
     while(1)
     {
+        // Calculate time left
+        uint32_t usNow = plt_getMonoTimeUS();
+        uint32_t usElapsed = usNow - usStart;
+        uint32_t usLeft = (msTimeout * 1000) - usElapsed;
+        if((int32_t)usLeft <= 0) break;
+
+        // Populate select timeout
+        struct timeval tv;
+        tv.tv_sec = usLeft / 1000000;
+        tv.tv_usec = usLeft % 1000000;
+
         // Get writability and readability on sockets. On timeout just terminate the loop
         fd_set rfdsResult = rfdsPrm, wfdsResult = wfdsPrm;
         int numReady = select(maxSocket + 1, &rfdsResult, &wfdsResult, 0, &tv);
@@ -1089,6 +1117,13 @@ int getIDNServerList(IDNSL_SERVER_INFO **ppFirstServerInfo, unsigned msTimeout)
     // Validate call arguments and initialize return value
     if(ppFirstServerInfo == (IDNSL_SERVER_INFO **)NULL) return -1;
     *ppFirstServerInfo = (IDNSL_SERVER_INFO *)NULL;
+
+    // Validate monotonic time reference
+    if(plt_validateMonoTime() != 0)
+    {
+        logError("Monotonic time init failed");
+        return -1;
+    }
 
     // Allocate a context to keep variables for this scan. Note: Contains receive packet buffer
     SCAN_CONTEXT *scanCtx = (SCAN_CONTEXT *)calloc(1, sizeof(SCAN_CONTEXT));

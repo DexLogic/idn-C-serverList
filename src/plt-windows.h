@@ -53,6 +53,57 @@ typedef void(*IFADDR_CALLBACK_PFN)(void *callbackArg, const char *ifName, uint32
 //  Inline functions
 // -------------------------------------------------------------------------------------------------
 
+inline static int plt_validateMonoTime()
+{
+    extern int plt_monoValid;
+    extern LARGE_INTEGER plt_monoCtrFreq;
+    extern LARGE_INTEGER plt_monoCtrRef;
+    extern uint32_t plt_monoTimeUS;
+
+    extern void logError(const char *fmt, ...);
+
+    if(!plt_monoValid)
+    {
+        // Get performance counter frequency
+        if(QueryPerformanceFrequency(&plt_monoCtrFreq) == 0)
+        {
+            logError("QueryPerformanceFrequency() error = %d", (int)GetLastError());
+            return -1;
+        }
+
+        // Initialize performance counter reference
+        if(QueryPerformanceCounter(&plt_monoCtrRef) == 0)
+        {
+            logError("QueryPerformanceCounter() error = %d", (int)GetLastError());
+            return -1;
+        }
+
+        // Initialize internal time randomly
+        plt_monoTimeUS = (uint32_t)((plt_monoCtrRef.QuadPart * 1000000) / plt_monoCtrFreq.QuadPart);
+    }
+
+    return 0;
+}
+
+
+inline static uint32_t plt_getMonoTimeUS(void)
+{
+    extern LARGE_INTEGER plt_monoCtrFreq;
+    extern LARGE_INTEGER plt_monoCtrRef;
+    extern uint32_t plt_monoTimeUS;
+
+    // Get current time
+    LARGE_INTEGER pctNow;
+    QueryPerformanceCounter(&pctNow);
+
+    // Update internal time and system time reference
+    plt_monoTimeUS += (uint32_t)(((pctNow.QuadPart - plt_monoCtrRef.QuadPart) * 1000000) / plt_monoCtrFreq.QuadPart);
+    plt_monoCtrRef = pctNow;
+
+    return plt_monoTimeUS;
+}
+
+
 inline static int plt_ifAddrListVisitor(IFADDR_CALLBACK_PFN pfnCallback, void *callbackArg)
 {
     extern void logError(const char *fmt, ...);

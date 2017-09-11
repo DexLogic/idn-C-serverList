@@ -35,6 +35,7 @@
 // Standard libraries
 #include <unistd.h>
 #include <errno.h>
+#include <time.h>
 
 // Platform headers
 #include <ifaddrs.h>
@@ -51,6 +52,55 @@ typedef void (* IFADDR_CALLBACK_PFN)(void *callbackArg, const char *ifName, uint
 // -------------------------------------------------------------------------------------------------
 //  Inline functions
 // -------------------------------------------------------------------------------------------------
+
+inline static int plt_validateMonoTime()
+{
+    extern int plt_monoValid;
+    extern struct timespec plt_monoRef;
+    extern uint32_t plt_monoTimeUS;
+
+    if(!plt_monoValid)
+    {
+        // Initialize time reference
+        if(clock_gettime(CLOCK_MONOTONIC, &plt_monoRef) < 0) return -1;
+
+        // Initialize internal time randomly
+        plt_monoTimeUS = (uint32_t)((plt_monoRef.tv_sec * 1000000ul) + (plt_monoRef.tv_nsec / 1000));
+        plt_monoValid = 1;
+    }
+
+    return 0;
+}
+
+
+inline static uint32_t plt_getMonoTimeUS()
+{
+    extern struct timespec plt_monoRef;
+    extern uint32_t plt_monoTimeUS;
+
+    // Get current time
+    struct timespec tsNow, tsDiff;
+    clock_gettime(CLOCK_MONOTONIC, &tsNow);
+
+    // Determine difference to reference time
+    if(tsNow.tv_nsec < plt_monoRef.tv_nsec) 
+    {
+        tsDiff.tv_sec = (tsNow.tv_sec - plt_monoRef.tv_sec) - 1;
+        tsDiff.tv_nsec = (1000000000 + tsNow.tv_nsec) - plt_monoRef.tv_nsec;
+    } 
+    else 
+    {
+        tsDiff.tv_sec = tsNow.tv_sec - plt_monoRef.tv_sec;
+        tsDiff.tv_nsec = tsNow.tv_nsec - plt_monoRef.tv_nsec;
+    }
+
+    // Update internal time and system time reference
+    plt_monoTimeUS += (uint32_t)((tsDiff.tv_sec * 1000000) + (tsDiff.tv_nsec / 1000));
+    plt_monoRef = tsNow;
+
+    return plt_monoTimeUS;
+}
+
 
 inline static int plt_ifAddrListVisitor(IFADDR_CALLBACK_PFN pfnCallback, void *callbackArg)
 {
