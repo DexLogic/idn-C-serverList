@@ -1,4 +1,7 @@
 
+1.0.2 (2018-09-29)
+- IDN header update
+
 1.0.1 (2017-09-11)
 - IDN header update
 - Fixed select timeout calculation to be portable
