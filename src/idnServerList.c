@@ -504,11 +504,6 @@ static int serviceMapResponse(SCAN_CONTEXT *scanCtx, RESPONSE_INFO *responseInfo
                     logError("ServiceMapRsp(%s, service): Invalid serviceID %u", strRemoteAddr, serviceMapEntry->serviceID);
                     break;
                 }
-                else if(serviceMapEntry->serviceType == 0)
-                {
-                    logError("ServiceMapRsp(%s, service): Invalid serviceType %u", strRemoteAddr, serviceMapEntry->serviceType);
-                    break;
-                }
 
                 // Copy fields
                 IDNSL_SERVICE_INFO *serviceEntry = &serviceTable[serviceIndex];

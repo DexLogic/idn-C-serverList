@@ -1,4 +1,7 @@
 
+1.0.3 (2018-09-29)
+- Allows servers to report a void service type (unknown)
+
 1.0.2 (2018-09-29)
 - IDN header update
 
@@ -6,7 +9,7 @@
 - IDN header update
 - Fixed select timeout calculation to be portable
 - Port check for received packets
-- For services in servoce map: serviceType check
+- For services in service map: serviceType check
 
 1.0.0 (2017-06-17)
 - GitHub release
