@@ -47,6 +47,7 @@
 
 
 // Project headers
+#include "idn-stream.h"
 #include "idnServerList.h"
 
 
@@ -178,16 +179,13 @@ static void logServer(IDNSL_SERVER_INFO *serverInfo)
     // ------------------------------------------------------------------------.
 
     // Log all services
-    int idWidth = 1;
-    if(serverInfo->serviceCount >= 10) idWidth++;
-    if(serverInfo->serviceCount >= 100) idWidth++;
-    for(unsigned i = 0; i < serverInfo->serviceCount; i++) 
+    for(unsigned i = 0; i < serverInfo->serviceCount; i++)
     {
         IDNSL_SERVICE_INFO *serviceEntry = &serverInfo->serviceTable[i];
         logPtr = logString;
 
         // Print service ID
-        logPtr = bufPrintf(logPtr, logLimit, "  %*u: ", idWidth, serviceEntry->serviceID);
+        logPtr = bufPrintf(logPtr, logLimit, "  %3u: ", serviceEntry->serviceID);
 
         // Print service name
         char *serviceName = serviceEntry->serviceName;
@@ -203,6 +201,13 @@ static void logServer(IDNSL_SERVER_INFO *serverInfo)
             if(relayName[0] == '\0') relayName = (char *)"<blank>";
             logPtr = bufPrintf(logPtr, logLimit, "@%s", relayName);
         }
+
+        // Print service type
+        const char *typeText = (const char *)0;
+        if(serviceEntry->serviceType == IDNVAL_STYPE_LAPRO) typeText = "lapro";
+        else if(serviceEntry->serviceType == IDNVAL_STYPE_AUDIO) typeText = "audio";
+        if(typeText != (const char *)0) logPtr = bufPrintf(logPtr, logLimit, " (%s)", typeText);
+        else logPtr = bufPrintf(logPtr, logLimit, " (0x%02X)", serviceEntry->serviceType);
 
         // ... and write the service log line
         logInfo(logString);
