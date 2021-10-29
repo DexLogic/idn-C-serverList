@@ -123,7 +123,7 @@ typedef struct _IDN_SERVER_INFO
 //  Prototypes
 // -------------------------------------------------------------------------------------------------
 
-int getIDNServerList(IDNSL_SERVER_INFO **ppFirstServerInfo, unsigned msTimeout);
+int getIDNServerList(IDNSL_SERVER_INFO **ppFirstServerInfo, uint8_t clientGroup, unsigned msTimeout);
 void freeIDNServerList(IDNSL_SERVER_INFO *firstServerInfo);
 
 

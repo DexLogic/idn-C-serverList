@@ -32,6 +32,8 @@
 // Standard libraries
 #include <stdio.h>
 #include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
 
 
 // Platform includes
@@ -221,6 +223,37 @@ static void logServer(IDNSL_SERVER_INFO *serverInfo)
 
 int main(int argc, char **argv)
 {
+    int usageFlag = 0;
+    uint8_t clientGroup = 0;
+
+    for(int i = 1; i < argc; i++)
+    {
+        if(!strcmp(argv[i], "-cg"))
+        {
+            if(++i >= argc) { usageFlag = 1; break; }
+            int param = atoi(argv[i]);
+            if((param < 0) || (param >= 16)) { usageFlag = 1; break; }
+            else clientGroup = (uint8_t)param;
+        }
+        else
+        {
+            usageFlag = 1;
+            break;
+        }
+    }
+
+    if(usageFlag)
+    {
+        printf("\n");
+        printf("USAGE: serverList { Options } \n\n");
+        printf("Options:\n");
+        printf("  -cg      clientGroup The client group (0..15, default = 0).\n");
+        printf("\n");
+
+        return 0;
+    }
+
+
     logInfo("IDN server list");
     logInfo("------------------------------------------------------------");
 
@@ -237,7 +270,7 @@ int main(int argc, char **argv)
         // Find all IDN servers
         unsigned msTimeout = 500;
         IDNSL_SERVER_INFO *firstServerInfo;
-        int rcGetList = getIDNServerList(&firstServerInfo, msTimeout);
+        int rcGetList = getIDNServerList(&firstServerInfo, clientGroup, msTimeout);
         if(rcGetList != 0)
         {
             logError("getIDNServerList() failed (error: %d)", rcGetList);

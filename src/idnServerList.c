@@ -152,7 +152,9 @@ typedef struct
 
 typedef struct
 {
-    IDNSL_SERVER_INFO *firstServerInfo;
+    uint8_t clientGroup;                        // The client group to run on
+
+    IDNSL_SERVER_INFO *firstServerInfo;         // The resulting server info list
 
     INTERFACE_NODE *firstIfNode;                // Head of interface record list
     INTERFACE_NODE *lastIfNode;                 // Tail of interface record list
@@ -314,7 +316,7 @@ static int sendNextRequest(REQUEST_QUEUE *requestQueue)
 }
 
 
-static int scheduleQueryRequest(REQUEST_QUEUE *requestQueue, uint8_t cmd, uint16_t sequenceNum, struct in_addr *addr)
+static int scheduleQueryRequest(REQUEST_QUEUE *requestQueue, uint8_t cmd, uint8_t clientGroup, uint16_t sequenceNum, struct in_addr *addr)
 {
     // Allocate request job memory
     size_t memSize = sizeof(REQUEST_JOB) + sizeof(IDNHDR_PACKET);
@@ -332,7 +334,7 @@ static int scheduleQueryRequest(REQUEST_QUEUE *requestQueue, uint8_t cmd, uint16
     // Populate packet fields
     IDNHDR_PACKET *reqPacketHdr = (IDNHDR_PACKET *)&reqJob[1];
     reqPacketHdr->command = cmd;
-    reqPacketHdr->flags = 0;
+    reqPacketHdr->flags = clientGroup & IDNMSK_PKTFLAGS_GROUP;
     reqPacketHdr->sequence = htons(sequenceNum);
 
     // Schedule for transmission
@@ -377,7 +379,7 @@ static int scheduleInfoRequests(SCAN_CONTEXT *scanCtx, RESPONSE_INFO *responseIn
 {
     uint8_t cmd = IDNCMD_SERVICEMAP_REQUEST;
     uint16_t sequenceNum = responseInfo->serviceMapSequenceNum = scanCtx->sequenceNum++;
-    int rc = scheduleQueryRequest(&(scanCtx->infoRequestQueue), cmd, sequenceNum, &(responseInfo->addr));
+    int rc = scheduleQueryRequest(&(scanCtx->infoRequestQueue), cmd, scanCtx->clientGroup, sequenceNum, &(responseInfo->addr));
     if(rc < 0) return rc;
 
     // Additional requests (properies, ...) could go here.
@@ -665,7 +667,7 @@ static int sendBroadcastRequest(SCAN_CONTEXT *scanCtx, INTERFACE_NODE *ifNode)
     // Populate IDN-Hello request packet
     IDNHDR_PACKET reqPacketHdr;
     reqPacketHdr.command = IDNCMD_SCAN_REQUEST;
-    reqPacketHdr.flags = 0;
+    reqPacketHdr.flags = scanCtx->clientGroup & IDNMSK_PKTFLAGS_GROUP;
     reqPacketHdr.sequence = htons(ifNode->scanSequenceNum);
 
     // Broadcast the scan request
@@ -683,7 +685,7 @@ static int scheduleCheckRequest(SCAN_CONTEXT *scanCtx, RESPONSE_INFO *responseIn
 {
     uint8_t cmd = IDNCMD_SCAN_REQUEST;
     uint16_t sequenceNum = responseInfo->checkSequenceNum = scanCtx->sequenceNum++;
-    return scheduleQueryRequest(&(scanCtx->checkRequestQueue), cmd, sequenceNum, &(responseInfo->addr));
+    return scheduleQueryRequest(&(scanCtx->checkRequestQueue), cmd, scanCtx->clientGroup, sequenceNum, &(responseInfo->addr));
 }
 
 
@@ -1107,11 +1109,14 @@ static int runScan(SCAN_CONTEXT *scanCtx, unsigned msTimeout)
 //  API functions
 // -------------------------------------------------------------------------------------------------
 
-int getIDNServerList(IDNSL_SERVER_INFO **ppFirstServerInfo, unsigned msTimeout)
+int getIDNServerList(IDNSL_SERVER_INFO **ppFirstServerInfo, uint8_t clientGroup, unsigned msTimeout)
 {
-    // Validate call arguments and initialize return value
+    // Validate/Initialize result argument
     if(ppFirstServerInfo == (IDNSL_SERVER_INFO **)NULL) return -1;
     *ppFirstServerInfo = (IDNSL_SERVER_INFO *)NULL;
+
+    // Validate client group argument
+    if(clientGroup > 15) return -1;
 
     // Validate monotonic time reference
     if(plt_validateMonoTime() != 0)
@@ -1127,6 +1132,9 @@ int getIDNServerList(IDNSL_SERVER_INFO **ppFirstServerInfo, unsigned msTimeout)
         logError("calloc(SCAN_CONTEXT) failed");
         return -1;
     }
+
+    // Populate context
+    scanCtx->clientGroup = clientGroup;
 
 
     // -------------------------------------------------------------------------
